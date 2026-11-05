@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CampusEats Catalogue</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>CampusEats Catalogue</h1>
+
+        <p class="sub">
+            The menu — served by a REST API (Node + Express)
+        </p>
+
+        <!-- Filter -->
+        <div class="filter-section">
+            <label for="filter">Filter Dishes:</label>
+
+            <select id="filter" onchange="loadItems()">
+                <option value="all">All Dishes</option>
+                <option value="true">Vegetarian</option>
+                <option value="false">Non-Vegetarian</option>
+            </select>
+        </div>
+
+        <!-- Dish List -->
+        <div id="list">Loading...</div>
+
+        <!-- Add Dish Form -->
+        <form id="addForm">
+            <h3>Add a dish</h3>
+
+            <input
+                type="text"
+                id="name"
+                placeholder="Dish name"
+                required
+            >
+
+            <input
+                type="number"
+                id="price"
+                placeholder="Price (rupees)"
+                min="0"
+                required
+            >
+
+            <select id="veg">
+                <option value="true">Vegetarian</option>
+                <option value="false">Non-Vegetarian</option>
+            </select>
+
+            <button type="submit">Add Dish</button>
+        </form>
+
+    </div>
+
+    <script>
+
+        // GET dishes with filter
+        async function loadItems() {
+            const filter = document.getElementById('filter').value;
+
+            let url = '/items';
+
+            if (filter !== 'all') {
+                url += `?veg=${filter}`;
+            }
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to load dishes');
+
+                const items = await response.json();
+                const list = document.getElementById('list');
+
+                list.innerHTML = '';
+
+                if (items.length === 0) {
+                    list.textContent = 'No dishes found!';
+                    return;
+                }
+
+                items.forEach(item => {
+                    const dish = document.createElement('div');
+                    dish.className = 'dish';
+
+                    const info = document.createElement('div');
+                    info.className = 'dish-info';
+
+                    const name = document.createElement('span');
+                    name.className = 'name';
+                    name.textContent = item.name;
+
+                    const category = document.createElement('span');
+                    category.className =
+                        `category ${item.veg ? 'veg' : 'nonveg'}`;
+                    category.textContent = item.veg ? 'VEG' : 'NON-VEG';
+
+                    info.append(name, category);
+
+                    const actions = document.createElement('div');
+                    actions.className = 'dish-actions';
+
+                    const price = document.createElement('span');
+                    price.className = 'price';
+                    price.textContent = `₹${item.price}`;
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.addEventListener('click', () => {
+                        deleteItem(item.id);
+                    });
+
+                    actions.append(price, deleteBtn);
+                    dish.append(info, actions);
+                    list.appendChild(dish);
+                });
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('list').textContent =
+                    'Unable to load dishes.';
+            }
+        }
+
+        // POST: Add new dish
+        document.getElementById('addForm')
+            .addEventListener('submit', async (e) => {
+
+                e.preventDefault();
+
+                const name = document.getElementById('name').value;
+                const price = Number(document.getElementById('price').value);
+                const veg = document.getElementById('veg').value === 'true';
+
+                try {
+                    const response = await fetch('/items', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, price, veg })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to add dish');
+                    }
+
+                    e.target.reset();
+                    document.getElementById('filter').value = 'all';
+                    await loadItems();
+
+                } catch (error) {
+                    alert('Unable to add dish!');
+                }
+            });
+
+        // DELETE: Remove dish
+        async function deleteItem(id) {
+            if (!confirm('Are you sure you want to delete this dish?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/items/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.status === 204) {
+                    await loadItems();
+                } else if (response.status === 404) {
+                    alert('Dish not found!');
+                    await loadItems();
+                } else {
+                    alert('Unable to delete dish!');
+                }
+
+            } catch (error) {
+                alert('Unable to delete dish!');
+            }
+        }
+
+        loadItems();
+
+    </script>
+
+</body>
+</html>
